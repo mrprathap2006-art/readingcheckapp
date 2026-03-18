@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>AI Reading Monitor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:'Segoe UI',sans-serif;
+}
+
+body{
+height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+background:linear-gradient(135deg,#4facfe,#00f2fe);
+}
+
+.card{
+width:380px;
+padding:25px;
+border-radius:20px;
+background:rgba(255,255,255,0.15);
+backdrop-filter:blur(20px);
+box-shadow:0 10px 30px rgba(0,0,0,0.3);
+text-align:center;
+color:white;
+}
+
+h2{
+margin-bottom:15px;
+}
+
+input{
+width:90%;
+padding:10px;
+margin:8px 0;
+border:none;
+border-radius:10px;
+outline:none;
+}
+
+button{
+margin:6px;
+padding:10px 15px;
+border:none;
+border-radius:10px;
+cursor:pointer;
+font-weight:bold;
+transition:0.3s;
+}
+
+button:hover{
+transform:scale(1.08);
+}
+
+.primary{background:#00c853;color:white;}
+.info{background:#2979ff;color:white;}
+.danger{background:#ff1744;color:white;}
+.warning{background:#ff9100;color:white;}
+
+.mic-active{
+animation:pulse 1s infinite;
+background:#ff1744 !important;
+}
+
+@keyframes pulse{
+0%{transform:scale(1);}
+50%{transform:scale(1.1);}
+100%{transform:scale(1);}
+}
+
+.text-box{
+background:white;
+color:black;
+padding:10px;
+margin-top:10px;
+border-radius:10px;
+height:90px;
+overflow:auto;
+font-size:13px;
+text-align:left;
+}
+
+.status{
+margin-top:10px;
+padding:10px;
+border-radius:10px;
+background:rgba(255,255,255,0.2);
+font-size:14px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+
+<h2>📖 AI Reading Monitor</h2>
+
+<input type="text" id="studentName" placeholder="Enter Name">
+
+<input type="file" id="imageUpload">
+
+<button class="info" onclick="extractText()">📄 Extract Text</button>
+<button id="micBtn" class="primary" onclick="startVoice()">🎤 Start Mic</button>
+<button class="danger" onclick="stopVoice()">⏹ Stop</button>
+<button class="warning" onclick="checkReading()">✅ Check</button>
+
+<div class="text-box" id="ocrText">OCR Text...</div>
+<div class="text-box" id="voiceText">Voice Text...</div>
+
+<div class="status" id="result">System Ready...</div>
+
+</div>
+
+<script>
+
+let uploadedImageData=null;
+let extractedText="";
+let voiceText="";
+let recognition;
+
+// Upload
+document.getElementById("imageUpload").addEventListener("change",function(){
+let file=this.files[0];
+let reader=new FileReader();
+reader.onload=function(e){
+uploadedImageData=e.target.result;
+};
+reader.readAsDataURL(file);
+});
+
+// OCR
+async function extractText(){
+
+if(!uploadedImageData){
+alert("Upload image first");
+return;
+}
+
+result.innerHTML="⏳ Extracting...";
+
+try{
+
+let res=await fetch("http://127.0.0.1:5000/verify",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({image:uploadedImageData})
+});
+
+let data=await res.json();
+
+if(data.status==="valid"){
+extractedText=data.text;
+document.getElementById("ocrText").innerHTML=extractedText;
+result.innerHTML="✅ Text Extracted";
+}else{
+result.innerHTML="❌ No Text Found";
+}
+
+}catch{
+result.innerHTML="⚠ Backend error";
+}
+
+}
+
+// MIC START
+function startVoice(){
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if(!SpeechRecognition){
+alert("Use Chrome browser");
+return;
+}
+
+recognition = new SpeechRecognition();
+recognition.lang = "ta-IN"; // 🔥 Tamil voice
+
+recognition.onresult = function(e){
+voiceText = e.results[0][0].transcript;
+document.getElementById("voiceText").innerHTML = voiceText;
+};
+
+recognition.start();
+
+document.getElementById("micBtn").classList.add("mic-active");
+
+result.innerHTML="🎤 Listening...";
+}
+
+// MIC STOP
+function stopVoice(){
+if(recognition){
+recognition.stop();
+document.getElementById("micBtn").classList.remove("mic-active");
+result.innerHTML="🛑 Mic Stopped";
+}
+}
+
+// CHECK
+function checkReading(){
+
+if(!extractedText || !voiceText){
+alert("Do OCR + Speak");
+return;
+}
+
+let match=0;
+
+let spoken=voiceText.toLowerCase().split(" ");
+let original=extractedText.toLowerCase().split(" ");
+
+spoken.forEach(word=>{
+if(original.includes(word)){
+match++;
+}
+});
+
+let accuracy=(match/original.length)*100;
+
+result.innerHTML="🎯 Accuracy: "+accuracy.toFixed(2)+"%";
+
+}
+
+</script>
+
+</body>
+</html>
